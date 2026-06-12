@@ -510,3 +510,54 @@ After writing all outputs and your `status.json` flag, end with exactly:
 - at **every viewport** (desktop, tablet, mobile).
 
 Log each in `interaction-map.json`, grounded in the `mcp__claude-in-chrome__javascript_tool` / `read_page` confirmation that the view actually rendered. If you finish recon having exercised only one or a handful of views, it is wrong — go back and exercise every sidebar item, tab, filter, and panel until each is confirmed.
+
+---
+
+## Exhaustive Crawl Protocol (Firecrawl Mode)
+
+Recon is not a guided walkthrough — it is a **breadth-first traversal of the app's link graph**. Maintain a visit queue. Before capturing any view, seed it from the live page:
+
+```js
+// Run via mcp__claude-in-chrome__javascript_tool on the live page
+const anchors = [...document.querySelectorAll('a[href], button, [role="button"], [role="tab"], [role="menuitem"], [data-route], [href]')];
+const seen = new Set();
+const queue = [];
+anchors.forEach(el => {
+  const href = el.getAttribute('href') || el.dataset.route || el.textContent.trim();
+  if (href && !seen.has(href)) { seen.add(href); queue.push({ el, href }); }
+});
+JSON.stringify({ total: queue.length, sample: queue.slice(0, 20).map(q => q.href) });
+```
+
+Then **for each item in the queue**:
+
+1. Click or navigate to it.
+2. Wait for network idle (`document.readyState === 'complete'`).
+3. Re-run the link-discovery query to find *new* links on this page.
+4. Add undiscovered links back to the queue (dedupe against `seen`).
+5. Capture computed styles + visual-reference screenshot.
+6. Log to `interaction-map.json` (contract §8).
+
+Only stop when the **queue is empty** or you hit the **max-depth guard** (default: 5 levels). This turns recon from a sample into a true BFS graph traversal — exactly how Firecrawl maps a site.
+
+> The crawl queue is the source of truth for the coverage gate. Every `route` you log into `interaction-map.json` here is later asserted against the clone by `scripts/assert-styles.mjs --interaction-map` (QA §coverage). A route discovered but never logged is a route the clone is allowed to miss — so log every one, or record a deliberate exclusion + reason.
+
+## Interaction State Taxonomy (must capture all)
+
+For every clickable element discovered during the crawl, classify it and capture its triggered state — a computed-style snapshot **plus** a screenshot for **each state**, not just each route:
+
+| Type | Discovery method | How to trigger |
+|---|---|---|
+| Routes/pages | `<a href>`, `<Link>`, router links | `navigate()` |
+| Tabs | `[role="tab"]`, `.tab`, `data-tab` | click |
+| Modals/dialogs | `[role="dialog"]`, `.modal` | click trigger |
+| Dropdowns | `[role="listbox"]`, `[aria-haspopup]` | click trigger |
+| Context menus | right-click zones | `dispatchEvent('contextmenu')` |
+| Hover states | `title`, `[data-tooltip]` | `mouseenter` |
+| Form states | `<input>`, `<select>` | focus, fill, error |
+| Toggle/switch states | `[role="switch"]`, `[aria-checked]` | click **both** states |
+| Accordion/expand | `[aria-expanded]` | click open **AND** closed |
+| Infinite scroll | bottom-of-list sentinel | scroll to bottom |
+| Auth gates | 401/403 redirects | attempt unauthenticated |
+
+Capture a computed-style snapshot + screenshot for **each state**, not just each route. A toggle has two states; an accordion has two; a form has empty/filled/error — each is its own row in `interaction-map.json`.

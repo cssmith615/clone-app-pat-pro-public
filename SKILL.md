@@ -43,7 +43,7 @@ Running stage N+1 before the user has responded to stage N is a **failure**. One
 
 ### What "EVERY VIEW" means (recon is not one screenshot)
 
-Recon must reach **every state the app can show** — exhaustive, not a sample. Navigate and capture/extract:
+Recon must reach **every state the app can show** — exhaustive, not a sample. Run it as a **BFS crawl-graph traversal** (the Exhaustive Crawl Protocol in [01-recon.md](references/01-recon.md)): maintain a visit queue, and for every link/control you discover, click it, wait for network idle, re-scan for new links, push undiscovered ones back onto the queue, and capture the state — until the queue is empty or the max-depth guard trips. Navigate and capture/extract:
 - **every left-hand sidebar item** (click each, go into its view);
 - **every tab / top filter** (Active / Backlog / All / …);
 - **every filter and layout toggle** (board ↔ list ↔ every layout; sort/group);

@@ -13,7 +13,7 @@ It runs in a Claude session: the live Claude orchestrates Task sub-agents and dr
 You give it one thing: a URL (e.g. `linear.app`). Then:
 
 **1. Recon — look at the real thing, and click everything.**
-It opens the live site (the Chrome extension, so it's logged in) and walks every view — and **exhaustively clicks through it**: every left sidebar item, tab, filter, layout, menu, side panel, and editor, at desktop/tablet/mobile. For each view it takes a screenshot as a visual reference and reads the real computed styles. This matters because the UI that's easiest to miss (a toolbar that only appears when you focus the editor, a comment box, an opened menu) doesn't exist until you interact. Sampling = a skin-deep clone, so it clicks everything.
+It opens the live site (the Chrome extension, so it's logged in) and walks every view as a **breadth-first crawl** — it keeps a visit queue, and every newly discovered link/control gets pushed back on the queue until the queue is empty (or a max-depth guard trips), so nothing is missed. It **exhaustively clicks through it**: every left sidebar item, tab, filter, layout, menu, side panel, and editor, at desktop/tablet/mobile. For each view it takes a screenshot as a visual reference and reads the real computed styles. This matters because the UI that's easiest to miss (a toolbar that only appears when you focus the editor, a comment box, an opened menu) doesn't exist until you interact. Sampling = a skin-deep clone, so it clicks everything.
 
 **2. Extraction — measure everything (leave no stone unturned).**
 This is the part that separates a real clone from slop. Instead of eyeballing a screenshot, agents read the site's actual rendered code and pull out *every exact value*:
@@ -40,7 +40,7 @@ It reads the clone's actual computed styles (via the Chrome extension) and a scr
 The failures get handed to fix agents (split up so they never touch the same file). After each fix it re-reads the computed styles; if a change didn't actually clear the failure, it reverts.
 
 **8. Loop until it matches.**
-Steps 6–7 repeat automatically. It keeps going until the clone passes the gate — **zero style-assertion failures and the build compiles** — or until it's genuinely stuck or hits a wall (like a login page it can't get past). It only comes back to you when it's actually done.
+Steps 6–7 repeat automatically. It keeps going until the clone passes the gate — **zero style-assertion failures, every route found during recon present in the clone, and the build compiles** — or until it's genuinely stuck or hits a wall (like a login page it can't get past). It only comes back to you when it's actually done.
 
 **9. Polish — sub-pixel cleanup.**
 A final pass tightens the last tiny differences: exact gradient stops, shadow blur, cursor on every button, focus rings.
@@ -61,7 +61,7 @@ The result is a working, running app that matches the original pixel for pixel �
 | Path | What it is |
 |------|------------|
 | `SKILL.md` | The in-conversation playbook — the live Claude reads this and orchestrates Task sub-agents + the Chrome extension. |
-| `scripts/assert-styles.mjs` | The gate — compares the clone's computed styles (read via the Chrome extension) to the design tokens. |
+| `scripts/assert-styles.mjs` | The gate — compares the clone's computed styles (read via the Chrome extension) to the design tokens, and (opt-in) checks every route found during recon exists in the clone. |
 | `scripts/partition_bugs.py` | Splits fixes across agents so they don't collide. |
 | `references/01-recon.md` … `07-polish.md` | The detailed instructions each stage agent follows. |
 | `references/00-contract.md` | The **internal spec** every agent obeys — exact file locations, the pass/fail gate numbers, and the rules each agent must follow. You don't need to read it to *use* the skill; read it if you want to understand or change the internals. |

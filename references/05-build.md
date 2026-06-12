@@ -202,3 +202,24 @@ The build must compile — your route cannot be the file that breaks the regress
 - `05-build/build-log.md` — every file created/edited + one-line description; any logged asset/token gaps.
 
 <promise>CONTINUE</promise>
+
+---
+
+## Emit `clone-route-manifest.json` (feeds the coverage gate)
+
+After 5b finishes, the build must declare every route the clone actually serves so QA's coverage gate (06-qa §coverage) can diff it against recon's `interaction-map.json`. Write `05-build/clone-route-manifest.json`:
+
+```json
+{
+  "routes": ["/", "/issues", "/issue/PER-9", "/settings", "/settings/profile"]
+}
+```
+
+Rules:
+
+- One entry per **navigable** route the clone renders — mirror the router (Next.js `app/`/`pages/`, React Router config, etc.), not the recon list. The point is to compare the two independently.
+- Use the **same path shape** recon logged (leading slash, no trailing slash, no origin) so set-difference matches exactly. Normalize dynamic segments to the concrete paths recon visited (`/issue/PER-9`, not `/issue/[id]`) — the gate compares literal routes.
+- A flat string array (`["/", "/issues"]`) is also accepted by the gate.
+- Any recon route missing here = a **Critical** coverage fail; build it before re-running QA. Any route here that recon never saw = an **orphan** — remove it or justify it.
+
+Add this file to `05-build/build-log.md`.

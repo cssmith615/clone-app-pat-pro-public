@@ -584,3 +584,36 @@ Set this task's flag in `status.json`, then end with `<promise>CONTINUE</promise
 Maintain `02-extraction/STATES-MANIFEST.md`: one row per view/state from `01-recon/interaction-map.json`, with columns `screenshot` and `code extracted`. Check `code extracted` only once you've actually pulled that state's computed styles / DOM. This is your punch-list — work down it; don't stop until every row's code column is checked. The coverage critic gates on it.
 
 **Large JSON / SVG extraction — beat the truncation.** `javascript_tool` results are truncated (~1.2k chars), so a big computed-style dump or full SVG markup won't come back inline. Workaround: have the page build the JSON/markup and trigger a download (a `Blob` + a synthetic `<a download>` click) — the full file lands in `~/Downloads`, then `mv` it into the workspace (e.g. `02-extraction/fragments/...`). No truncation, fully accurate. **Heads-up:** Chrome blocks *repeated* automatic downloads from a site until the user allows them — allow downloads for the target once, up front, or every download after the first silently fails.
+
+---
+
+## Per-element DOM walker (deep extraction)
+
+Per-view token sampling can miss elements. For each view, also run a **full DOM-tree walk** that records measured computed styles for every *visible* element — so the Design Spec (§03) synthesizes from actual values for every element, not a sample.
+
+```js
+// Paste into mcp__claude-in-chrome__javascript_tool for deep extraction
+const results = [];
+const all = document.querySelectorAll('*');
+all.forEach(el => {
+  const cs = getComputedStyle(el);
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return; // skip invisible
+  results.push({
+    tag: el.tagName,
+    role: el.getAttribute('role'),
+    classes: [...el.classList].join(' '),
+    font: cs.fontFamily + '/' + cs.fontSize + '/' + cs.fontWeight,
+    color: cs.color,
+    bg: cs.backgroundColor,
+    border: cs.border,
+    radius: cs.borderRadius,
+    shadow: cs.boxShadow,
+    spacing: { p: cs.padding, m: cs.margin, gap: cs.gap },
+    size: { w: Math.round(rect.width), h: Math.round(rect.height) }
+  });
+});
+JSON.stringify(results.slice(0, 500)); // paginate if needed
+```
+
+**Store the result per view as `extraction-{view-slug}.json`** (under `02-extraction/fragments/`). On large views the `javascript_tool` result truncates (~1.2k chars) — paginate by slicing (`results.slice(0, 500)`, `slice(500, 1000)`, …), or use the Blob-download workaround above to land the full file in `~/Downloads`, then `mv` it into the workspace. The Design Spec stage (`03-design-spec.md`) then synthesizes these into `DESIGN.md` tokens with measured values for **every visible element**, not just sampled ones.

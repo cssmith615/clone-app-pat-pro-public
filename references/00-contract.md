@@ -258,3 +258,34 @@ The objective ground truth of this pipeline is **computed styles read via `mcp__
 - **Pixel diff is out of scope** as a gate (§5). It is only meaningful for **public** sites where both the clone and the original can be written to disk as real PNGs; for authed sites it does not apply. Convergence is driven by `style_assertions.failed`, not by any diff image.
 
 **"Every view" is exhaustive, not a sample (recon, §8).** Reach ALL of: every left-hand sidebar item (navigate into each), every tab / top filter (Active/Backlog/All/etc.), every filter and layout toggle (board↔list↔every view), every menu/dropdown/context-menu (open state), every side panel / detail / modal, every interaction-revealed state (editor toolbar, comment composer, hover), at every viewport. For each, **read its computed styles via `javascript_tool`** (the data that matters) and take a visual-reference screenshot. One view captured = broken recon; keep going until each of these is read into the extraction artifacts and logged as an entry in `interaction-map.json`.
+
+## 8a. Recon completion checklist (agent MUST check all boxes)
+
+Recon (§8) does not pass its check-in gate (§9) until the agent completes and logs this sign-off. Blanks = failed recon. Mirror it in `01-recon/recon-signoff.json`:
+
+```json
+{
+  "crawl_queue_empty": true,
+  "max_depth_reached": false,
+  "total_views_captured": 0,
+  "every_anchor_visited_or_excluded": true,
+  "excluded": [{ "route": "", "reason": "" }],
+  "tabs_all_states_captured": true,
+  "modals_open_state_captured": true,
+  "dropdowns_open_state_captured": true,
+  "viewports": { "desktop_1280": true, "tablet_768": true, "mobile_375": true },
+  "interaction_map_written": true,
+  "extraction_json_per_view": true
+}
+```
+
+- [ ] Crawl queue empty (or depth limit reached) — total views captured: `___`
+- [ ] Every `<a>` href visited **OR** deliberately excluded (log route + reason in `excluded[]`)
+- [ ] Every `[role="tab"]` — all tab states captured
+- [ ] Every modal trigger clicked — modal open-state captured
+- [ ] Every dropdown/select — open-state captured
+- [ ] Every route at desktop (1280px), tablet (768px), mobile (375px)
+- [ ] `interaction-map.json` written with all view slugs
+- [ ] Extraction JSON (`extraction-{view-slug}.json`) written for each view slug
+
+The agent MUST populate `total_views_captured` and the `excluded[]` reasons — an unpopulated field is a failed recon, and the coverage gate (§5 / `assert-styles.mjs --interaction-map`) will later hard-fail on any route that was neither cloned nor logged as a deliberate exclusion.
